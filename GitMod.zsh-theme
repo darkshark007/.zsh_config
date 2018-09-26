@@ -214,6 +214,10 @@ buildDependencyList () {
 }
 
 testBower () {
+  which -s bower &> /dev/null
+  if [[ $? != 0 ]]; then
+    return
+  fi
   local RetStr=""
   \bower list | grep "linked" | while read -r line ; do
     local bLink=$(echo $line | sed -e "s/\#.*//g" | sed -e "s/.*\ //g")
@@ -232,6 +236,10 @@ testBower () {
 }
 
 testPip () {
+  which -s pip &> /dev/null
+  if [[ $? != 0 ]]; then
+    return
+  fi
   local RetStr=""
   \pip freeze | grep "^-e" | while read -r line ; do
     local bLink=$(echo $line | sed -e "s/\.git.*//g" | sed -e "s/.*\///g")
@@ -289,12 +297,24 @@ fishyPWD="Update"
 if [[ $MOD_OPTION_OVERRIDE_ALIASES == true ]]; then
     which -s prependAlias &> /dev/null
     if [[ $? == 0 ]]; then
-        appendAlias pip "theme_updateDeps"
-        appendAlias bower "theme_updateDeps"
+        which -s bower &> /dev/null
+        if [[ $? == 0 ]]; then
+          appendAlias bower "theme_updateDeps"
+        fi
+        which -s pip &> /dev/null
+        if [[ $? == 0 ]]; then
+          appendAlias pip "theme_updateDeps"
+        fi
         appendAlias cd "theme_updatePWD; theme_updateDeps"
     else
-        alias pip="theme_updateDeps; \pip"
-        alias bower "theme_updateDeps; \bower"
+        which -s pip &> /dev/null
+        if [[ $? == 0 ]]; then
+          alias pip="theme_updateDeps; \pip"
+        fi
+        which -s bower &> /dev/null
+        if [[ $? == 0 ]]; then
+          alias bower "theme_updateDeps; \bower"
+        fi
         alias cd "theme_updatePWD; theme_updateDeps; \cd"
     fi
 else
