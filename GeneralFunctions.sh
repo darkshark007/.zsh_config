@@ -62,6 +62,29 @@ function alert() {
   say "$Title"
 }
 
+alarm () {
+  # Parse options
+  local DELAY=10
+  local INTERV=10
+  local MESSAGE=0
+  while getopts d:i:m: option; do
+    case "${option}"; in
+      d) DELAY=${OPTARG};;
+      i) INTERV=${OPTARG};;
+      m) MESSAGE=${OPTARG};;
+    esac
+  done
+
+  # Validate Options
+
+  # Set the alarm
+  sleep $DELAY
+  while true; do 
+    alert $MESSAGE
+    sleep $INTERV
+  done
+}
+
 function printWithTimestamp() {
   echo "$(timestamp) ${@:1}"
 }
@@ -304,6 +327,28 @@ function runTests() {
 }
 
 
+# ==================================================================================================================
+# Min/max functions
+#   From Arnon Zilca
+#   https://stackoverflow.com/questions/10415064/how-to-calculate-the-minimum-of-two-variables-simply-in-bash
+#
+# Examples:
+#   min -g 3 2 5 1
+#   max -g 1.5 5.2 2.5 1.2 5.7
+#   min -h 25M 13G 99K 1098M
+#   max -d "Lorem" "ipsum" "dolor" "sit" "amet"
+#   min -M "OCT" "APR" "SEP" "FEB" "JUL"
+min() {
+    printf "%s\n" "${@:2}" | sort "$1" | head -n1
+}
+max() {
+    # using sort's -r (reverse) option - using tail instead of head is also possible
+    min ${1}r ${@:2}
+}
+# ==================================================================================================================
+
+
+
 function forceKillAll () {
 	local Target=$1
 	for PID in $(ps -A -v | grep $Target | awk '{print $1}')
@@ -312,3 +357,108 @@ function forceKillAll () {
 		kill -9 $PID &> /dev/null
 	done
 }
+
+
+function searchUrl() {
+  # Parse options
+  local BURL=""
+  local ITER=1
+  local MAXCOUNT=0
+  local DELAY=1
+  local START=0
+  local COMMAND=""
+  while getopts u:i:m:d:s:c: option; do
+    case "${option}"; in
+      u) BURL=${OPTARG};;
+      i) ITER=${OPTARG};;
+      m) MAXCOUNT=${OPTARG};;
+      d) DELAY=${OPTARG};;
+      s) START=${OPTARG};;
+      c) COMMAND=${OPTARG};;
+    esac
+  done
+
+  # Validate Options
+
+  # Run
+  print "URL:      $BURL"
+  print "Start at: $START"
+  print "Iterate:  $ITER"
+  print "Delay:    $DELAY sec"
+  print "Count:    $MAXCOUNT"
+  if [[ $COMMAND == "" ]]; then
+    print "Action:   Open"
+  else
+    print "Action:   $COMMAND"
+  fi
+  sleep 2
+  
+  local CT=$(($START+0)); 
+  while [[ $((($CT-$START)/ITER)) -lt $MAXCOUNT ]]; do
+    local URL="${BURL/++/$CT}"
+    if [[ $COMMAND == "" ]]; then
+        echo "Opening $URL"
+        open $URL
+    else
+        echo "Running Command on $URL"
+        eval $(echo "$COMMAND $URL")
+    fi
+    CT=$(($CT+$ITER))
+    sleep $DELAY
+  done
+}
+
+# Helper function for printing a timestamp in status messages
+function timestamp() {
+  echo $(date -j "+[%H:%M:%S]")
+}
+
+
+function watchUrl() {
+  # Parse options
+  local BURL=""
+  local BASEDELAY=1
+  local SEARCH=""
+  local INIT=0
+
+  while getopts u:s:d: option; do
+    case "${option}"; in
+      u) BURL=${OPTARG};;
+      d) BASEDELAY=${OPTARG};;
+      s) SEARCH=${OPTARG};;
+    esac
+  done
+
+  local compareStr=""
+  while true; do
+    local tempStrList=$(curl $BURL | grep $SEARCH) &>/dev/null
+    if [[ $? -ne 0 ]]; then
+      DELAY="10"
+      continue
+    fi
+    local tempStr=""
+    local DELAY="$BASEDELAY"
+    for str in $tempStrList; do
+      tempStr="$tempStr,$str"
+    done
+
+    if [[ $INIT -eq 0 ]]; then
+      INIT=1
+      compareStr="$tempStr"
+      print "$(timestamp) Found Compare String:\n  $compareStr"
+      DELAY="1"
+    else
+      if [[ $tempStr != $compareStr ]]; then
+        #local dff=$(diff  <(echo "$compareStr" ) <(echo "$tempStr"))
+        print "$(timestamp) Found New String:\n  $tempStr"
+        alert "URL Updated" "$BURL\n$SEARCH"
+        DELAY="$(min -g $BASEDELAY 10)"
+      else
+        echo -en " $(timestamp) Checked\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
+      fi
+    fi
+
+    sleep $DELAY
+  done
+}
+

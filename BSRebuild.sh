@@ -665,7 +665,7 @@ function rebuild() {
   fi
   if [[ -e requirements.txt ]]; then  
     echo "$fg[cyan] $(bstimestamp) [rebuild] -- Running pip install$reset_color"
-    pip install -e .
+    pip-sync || pip install -e . || pip install requirements.txt
   fi
   if [[ -e pubspec.yaml ]]; then  
     echo "$fg[cyan] $(bstimestamp) [rebuild] -- Running pub get$reset_color"
